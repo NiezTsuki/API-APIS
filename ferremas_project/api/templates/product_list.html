@@ -1,0 +1,178 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lista de Productos</title>
+    <link rel="stylesheet" type="text/css" href="{% static 'styles.css' %}">
+</head>
+<body>
+    <div class="container mt-4">
+        <h1>Lista de Productos</h1>
+
+        <!-- Tabla de productos -->
+        <table>
+            <thead>
+                <tr>
+                    <th>Código del producto</th>
+                    <th>Marca</th>
+                    <th>Código</th>
+                    <th>Nombre</th>
+                    <th>Precio</th>
+                    <th>Stock</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody id="product-table-body">
+                <!-- Aquí se llenarán los productos mediante JavaScript -->
+            </tbody>
+        </table>
+
+        <!-- Tabla de carrito de compras -->
+        <h2>Carrito de Compras</h2>
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>Precio</th>
+                        <th>Cantidad</th>
+                        <th>Subtotal</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="cart-table-body">
+                    <!-- Aquí se llenará el carrito mediante JavaScript -->
+                </tbody>
+            </table>
+            <div id="paypal-button-container"></div>
+        </div>
+
+        <!-- Tabla de valor del dólar en pesos chilenos -->
+        <h2>Valor del Dólar en Pesos Chilenos</h2>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Valor</th>
+                </tr>
+            </thead>
+            <tbody id="usd-to-clp-table-body">
+                <!-- Aquí se llenará la tabla con el valor del dólar en pesos chilenos -->
+            </tbody>
+        </table>
+
+        <!-- Botón para actualizar el valor del dólar -->
+        <button id="update-usd-button">Actualizar Valor del Dólar</button>
+
+        <!-- Sección de clima -->
+        <h2>Clima Actual</h2>
+        <div id="weather-info">
+            <p>Ciudad: <span id="city-name"></span></p>
+            <p>Temperatura: <span id="temperature"></span></p>
+            <p>Humedad: <span id="humidity"></span></p>
+            <p>Descripción: <span id="description"></span></p>
+        </div>
+        <button id="update-weather-button">Actualizar Clima</button>
+    </div>
+
+    <script src="https://www.paypal.com/sdk/js?client-id=ATQG83YvNv0RSuJ2hxYdrPilKcA8U7htchmWo1e7Xp5v2oblKNVgQhgA0CiPlvKDJ-vy7UbrfcPj0YfJ"></script>
+    <script src="{% static 'scripts.js' %}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const updateUsdButton = document.getElementById('update-usd-button');
+            updateUsdButton.addEventListener('click', function() {
+                fetch('/api/update-usd-prices/')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            alert(data.message);
+                            fetchUsdToClp();
+                        } else {
+                            alert(data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error al actualizar el valor del dólar:', error);
+                    });
+            });
+
+            function fetchUsdToClp() {
+                fetch('/api/update-usd-prices/')
+                    .then(response => response.json())
+                    .then(data => {
+                        const usdToClpTableBody = document.getElementById('usd-to-clp-table-body');
+                        usdToClpTableBody.innerHTML = '';
+
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${data.fecha}</td>
+                            <td>${data.valor}</td>
+                        `;
+                        usdToClpTableBody.appendChild(row);
+                    })
+                    .catch(error => {
+                        console.error('Error al obtener el valor del dólar en pesos chilenos:', error);
+                    });
+            }
+
+            // Función para obtener el clima basado en la ubicación del usuario
+            function fetchWeather(lat, lon) {
+                const apiKey = '317a344eb08d77e9dca1725a96e398b4';
+                const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric&lang=es`;
+
+                console.log('Fetching weather data...');
+                fetch(url)
+                    .then(response => {
+                        console.log('Response received');
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('Data:', data);
+                        const cityName = document.getElementById('city-name');
+                        const temperature = document.getElementById('temperature');
+                        const humidity = document.getElementById('humidity');
+                        const description = document.getElementById('description');
+
+                        if (data.main && data.weather) {
+                            cityName.textContent = data.name;
+                            temperature.textContent = `${data.main.temp} °C`;
+                            humidity.textContent = `${data.main.humidity} %`;
+                            description.textContent = data.weather[0].description;
+                        } else {
+                            console.error('Data structure is not as expected:', data);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error al obtener el clima:', error);
+                    });
+            }
+
+            // Obtener la ubicación del usuario
+            function getLocationAndFetchWeather() {
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(position => {
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
+                        fetchWeather(lat, lon);
+                    }, error => {
+                        console.error('Error al obtener la ubicación:', error);
+                    });
+                } else {
+                    console.error('Geolocation is not supported by this browser.');
+                }
+            }
+
+            const updateWeatherButton = document.getElementById('update-weather-button');
+            updateWeatherButton.addEventListener('click', getLocationAndFetchWeather);
+
+            fetchUsdToClp();
+            getLocationAndFetchWeather();
+        });
+    </script>
+
+        <a href="{% url 'logout' %}">Cerrar sesión</a>
+</body>
+</html>
